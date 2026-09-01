@@ -33,6 +33,10 @@ const IMAGES = [
 
 const SYMBOLS = ["8", "$", "^^", "%", "/"];
 
+const PRICE = 97.33;
+const formatPrice = (n: number) => "$" + n.toFixed(2).replace(".", ",");
+const productName = (id: number) => `FLUX PIECE ${String(id + 1).padStart(2, "0")}`;
+
 function buildLayout(count: number, cols: number): number[] {
   const cells: number[] = [];
   let idx = 0;
@@ -75,6 +79,38 @@ export default function PrmptLanding() {
   const [showCart, setShowCart] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showOrder, setShowOrder] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [cart, setCart] = useState<Record<number, number>>({});
+  const [addedId, setAddedId] = useState<number | null>(null);
+  const [checkoutStep, setCheckoutStep] = useState<"form" | "processing" | "done">("form");
+  const [orderNumber, setOrderNumber] = useState(
+    () => "FLX-" + Math.floor(1000 + Math.random() * 9000),
+  );
+
+  const addToCart = (id: number) => {
+    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+    setAddedId(id);
+  };
+  const removeFromCart = (id: number) => {
+    setCart((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+  const setQty = (id: number, qty: number) => {
+    if (qty <= 0) return removeFromCart(id);
+    setCart((prev) => ({ ...prev, [id]: qty }));
+  };
+  const clearCart = () => setCart({});
+  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const cartTotal = Object.entries(cart).reduce((sum, [, qty]) => sum + qty * PRICE, 0);
+
+  useEffect(() => {
+    if (addedId === null) return;
+    const t = setTimeout(() => setAddedId(null), 1400);
+    return () => clearTimeout(t);
+  }, [addedId]);
 
   useEffect(() => {
     const compute = () => {
@@ -88,13 +124,14 @@ export default function PrmptLanding() {
   }, []);
 
   // Escape key + scroll lock when any modal is open
-  const anyModalOpen = showAbout || showCart || showPrivacy || showOrder;
+  const anyModalOpen = showAbout || showCart || showPrivacy || showOrder || showCheckout;
   useEffect(() => {
     const closeAll = () => {
       setShowAbout(false);
       setShowCart(false);
       setShowPrivacy(false);
       setShowOrder(false);
+      setShowCheckout(false);
     };
     if (anyModalOpen) {
       document.body.style.overflow = "hidden";
@@ -547,11 +584,33 @@ export default function PrmptLanding() {
             <path d="M0 26H40" stroke="white" strokeWidth="2.5" />
           </svg>
           <span
-            className="cursor-pointer"
+            className="cursor-pointer flex items-center gap-2"
             style={{ fontSize: "var(--cart-fs)", ...font }}
             onClick={() => setShowCart(true)}
           >
             [ CART ]
+            {cartCount > 0 && (
+              <motion.span
+                key={cartCount}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: 18,
+                  height: 18,
+                  padding: "0 5px",
+                  borderRadius: 999,
+                  background: "#25D366",
+                  color: "#000",
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              >
+                {cartCount}
+              </motion.span>
+            )}
           </span>
         </div>
       </motion.div>
@@ -699,6 +758,9 @@ export default function PrmptLanding() {
               }
               const col = i % cols;
               const isLeftHalf = col < cols / 2;
+              const id = imgIdx;
+              const inCart = (cart[id] || 0) > 0;
+              const justAdded = addedId === id;
               return (
                 <div
                   key={i}
@@ -708,15 +770,77 @@ export default function PrmptLanding() {
                     transform: "scale(0)",
                     transformOrigin: isLeftHalf ? "right bottom" : "left bottom",
                     overflow: "hidden",
+                    position: "relative",
+                    cursor: "pointer",
                   }}
                 >
                   <img
                     src={IMAGES[imgIdx]}
-                    alt=""
+                    alt={productName(id)}
                     decoding="async"
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     loading="lazy"
+                    onClick={() => addToCart(id)}
                   />
+                  <div
+                    onClick={() => addToCart(id)}
+                    style={{
+                      position: "absolute",
+                      bottom: 10,
+                      right: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "rgba(255,255,255,0.92)",
+                      color: "#000",
+                      borderRadius: 999,
+                      padding: "7px 14px",
+                      fontSize: 12,
+                      letterSpacing: "0.02em",
+                      textTransform: "uppercase",
+                      boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
+                      ...font,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {justAdded ? (
+                      <span className="flex items-center gap-1">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          style={{ color: "#16a34a" }}
+                        >
+                          <path
+                            d="M20 6L9 17l-5-5"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Added
+                      </span>
+                    ) : inCart ? (
+                      <span className="flex items-center gap-1">In cart ({cart[id]})</span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        >
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Add
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1003,45 +1127,220 @@ export default function PrmptLanding() {
                 background: "#fff",
                 color: "#000",
                 borderRadius: 24,
-                padding: "40px 32px",
+                padding: "32px 28px",
                 maxWidth: 480,
                 width: "100%",
+                maxHeight: "80vh",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
                 ...font,
               }}
             >
-              <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 16 }}>Your Cart</div>
-              <p style={{ fontSize: 15, lineHeight: "170%", opacity: 0.7, marginBottom: 24 }}>
-                Your cart is currently empty. Pieces from the Archive Collection are released one at
-                a time — check back soon.
-              </p>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "16px 0",
-                  borderTop: "1px solid #eee",
-                }}
-              >
-                <span style={{ fontSize: 14, opacity: 0.7 }}>Total</span>
-                <span style={{ fontSize: 18, fontWeight: 600 }}>$0</span>
-              </div>
-              <button
-                onClick={() => setShowOrder(true)}
-                style={{
-                  width: "100%",
-                  marginTop: 20,
-                  background: "#000",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 12,
-                  padding: "14px 0",
-                  fontSize: 15,
-                  cursor: "pointer",
-                }}
-              >
-                Browse the Collection
-              </button>
+              <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 20 }}>Your Cart</div>
+
+              {cartCount === 0 ? (
+                <>
+                  <p style={{ fontSize: 15, lineHeight: "170%", opacity: 0.7, marginBottom: 24 }}>
+                    Your cart is currently empty. Tap any piece in the archive to add it.
+                  </p>
+                  <button
+                    onClick={() => setShowCart(false)}
+                    style={{
+                      width: "100%",
+                      background: "#000",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 12,
+                      padding: "14px 0",
+                      fontSize: 15,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Browse the Collection
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                      marginBottom: 20,
+                    }}
+                  >
+                    {Object.entries(cart).map(([idStr, qty]) => {
+                      const id = Number(idStr);
+                      return (
+                        <div
+                          key={id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            padding: 12,
+                            border: "1px solid #eee",
+                            borderRadius: 14,
+                          }}
+                        >
+                          <img
+                            src={IMAGES[id]}
+                            alt={productName(id)}
+                            loading="lazy"
+                            decoding="async"
+                            style={{
+                              width: 52,
+                              height: 72,
+                              objectFit: "cover",
+                              borderRadius: 8,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                letterSpacing: "0.02em",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {productName(id)}
+                            </div>
+                            <div style={{ fontSize: 13, opacity: 0.6, marginTop: 2 }}>
+                              {formatPrice(PRICE)}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              border: "1px solid #eee",
+                              borderRadius: 999,
+                              padding: "4px 8px",
+                            }}
+                          >
+                            <button
+                              onClick={() => setQty(id, qty - 1)}
+                              style={{
+                                border: "none",
+                                background: "none",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                color: "#000",
+                                padding: "0 2px",
+                              }}
+                            >
+                              −
+                            </button>
+                            <span style={{ fontSize: 13, minWidth: 16, textAlign: "center" }}>
+                              {qty}
+                            </span>
+                            <button
+                              onClick={() => setQty(id, qty + 1)}
+                              style={{
+                                border: "none",
+                                background: "none",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                color: "#000",
+                                padding: "0 2px",
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => removeFromCart(id)}
+                            aria-label="Remove item"
+                            style={{
+                              border: "none",
+                              background: "none",
+                              cursor: "pointer",
+                              color: "#999",
+                              fontSize: 16,
+                              padding: 4,
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      padding: "16px 0",
+                      borderTop: "1px solid #eee",
+                      borderBottom: "1px solid #eee",
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 14,
+                        opacity: 0.7,
+                      }}
+                    >
+                      <span>Items ({cartCount})</span>
+                      <span>{formatPrice(cartTotal)}</span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 14,
+                        opacity: 0.7,
+                      }}
+                    >
+                      <span>Shipping</span>
+                      <span>Free</span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 17,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>Total</span>
+                      <span>{formatPrice(cartTotal)}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setCheckoutStep("form");
+                      setOrderNumber("FLX-" + Math.floor(1000 + Math.random() * 9000));
+                      setShowCart(false);
+                      setShowCheckout(true);
+                    }}
+                    style={{
+                      width: "100%",
+                      background: "#000",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 12,
+                      padding: "14px 0",
+                      fontSize: 15,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Checkout — {formatPrice(cartTotal)}
+                  </button>
+                </>
+              )}
+
               <button
                 onClick={() => setShowCart(false)}
                 style={{
@@ -1211,8 +1510,29 @@ export default function PrmptLanding() {
                   marginBottom: 28,
                 }}
               >
-                $97,33
+                {formatPrice(PRICE)}
               </div>
+              <button
+                onClick={() => {
+                  addToCart(0);
+                  setShowOrder(false);
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  background: "#fff",
+                  color: "#000",
+                  border: "none",
+                  borderRadius: 999,
+                  padding: "16px 0",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  marginBottom: 12,
+                }}
+              >
+                Add to Cart — {formatPrice(PRICE)}
+              </button>
               <a
                 href={WHATSAPP_ORDER_URL("FLUX Archive Collection — $97,33")}
                 target="_blank"
@@ -1246,6 +1566,262 @@ export default function PrmptLanding() {
               >
                 Close
               </span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Checkout modal (fake payment) */}
+      <AnimatePresence>
+        {showCheckout && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowCheckout(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 70,
+              background: "rgba(0,0,0,0.8)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "clamp(12px, 3vw, 24px)",
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 24 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 24 }}
+              transition={{ duration: 0.3, ease: easing }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#fff",
+                color: "#000",
+                borderRadius: "clamp(18px, 3vw, 24px)",
+                padding: "clamp(24px, 5vw, 36px) clamp(20px, 4vw, 28px)",
+                maxWidth: 440,
+                width: "100%",
+                minHeight: "min(400px, 70dvh)",
+                maxHeight: "calc(100dvh - 24px)",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                boxSizing: "border-box",
+                ...font,
+              }}
+            >
+              {checkoutStep === "form" && (
+                <>
+                  <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Checkout</div>
+                  <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 20 }}>
+                    {cartCount} item{cartCount === 1 ? "" : "s"} — Total{" "}
+                    <b>{formatPrice(cartTotal)}</b> · Demo payment (no real charge)
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <input
+                      placeholder="Cardholder name"
+                      defaultValue="FLUX CUSTOMER"
+                      style={{
+                        border: "1px solid #ddd",
+                        borderRadius: "clamp(10px, 2vw, 12px)",
+                        padding: "clamp(13px, 3vw, 15px) 14px",
+                        fontSize: 16,
+                        outline: "none",
+                        boxSizing: "border-box",
+                        width: "100%",
+                        WebkitAppearance: "none",
+                        appearance: "none",
+                      }}
+                    />
+                    <input
+                      placeholder="4242 4242 4242 4242"
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      style={{
+                        border: "1px solid #ddd",
+                        borderRadius: "clamp(10px, 2vw, 12px)",
+                        padding: "clamp(13px, 3vw, 15px) 14px",
+                        fontSize: 16,
+                        outline: "none",
+                        boxSizing: "border-box",
+                        width: "100%",
+                        WebkitAppearance: "none",
+                        appearance: "none",
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <input
+                        placeholder="MM / YY"
+                        autoComplete="cc-exp"
+                        style={{
+                          border: "1px solid #ddd",
+                          borderRadius: "clamp(10px, 2vw, 12px)",
+                          padding: "clamp(13px, 3vw, 15px) 14px",
+                          fontSize: 16,
+                          outline: "none",
+                          boxSizing: "border-box",
+                          width: "50%",
+                          WebkitAppearance: "none",
+                          appearance: "none",
+                        }}
+                      />
+                      <input
+                        placeholder="CVC"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        style={{
+                          border: "1px solid #ddd",
+                          borderRadius: "clamp(10px, 2vw, 12px)",
+                          padding: "clamp(13px, 3vw, 15px) 14px",
+                          fontSize: 16,
+                          outline: "none",
+                          boxSizing: "border-box",
+                          width: "50%",
+                          WebkitAppearance: "none",
+                          appearance: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCheckoutStep("processing");
+                      setTimeout(() => setCheckoutStep("done"), 1800);
+                    }}
+                    style={{
+                      width: "100%",
+                      marginTop: 20,
+                      background: "#000",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 999,
+                      padding: "15px 0",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Pay {formatPrice(cartTotal)}
+                  </button>
+                  <span
+                    onClick={() => setShowCheckout(false)}
+                    style={{
+                      display: "block",
+                      marginTop: 14,
+                      textAlign: "center",
+                      fontSize: 13,
+                      opacity: 0.6,
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Cancel
+                  </span>
+                </>
+              )}
+
+              {checkoutStep === "processing" && (
+                <div style={{ textAlign: "center", padding: "20px 0" }}>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: "50%",
+                      border: "4px solid #eee",
+                      borderTopColor: "#000",
+                      margin: "0 auto 18px",
+                    }}
+                  />
+                  <div style={{ fontSize: 15 }}>Processing payment…</div>
+                  <div style={{ fontSize: 12, opacity: 0.5, marginTop: 6 }}>
+                    Demo checkout — nothing is charged
+                  </div>
+                </div>
+              )}
+
+              {checkoutStep === "done" && (
+                <div style={{ textAlign: "center", padding: "10px 0" }}>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: "50%",
+                      background: "#16a34a",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 18px",
+                    }}
+                  >
+                    <svg
+                      width="30"
+                      height="30"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  </motion.div>
+                  <div style={{ fontSize: 20, fontWeight: 600 }}>Order Confirmed!</div>
+                  <div style={{ fontSize: 13, opacity: 0.6, marginTop: 6 }}>
+                    Order #{orderNumber} · {formatPrice(cartTotal)}
+                  </div>
+                  <a
+                    href={WHATSAPP_ORDER_URL(
+                      `FLUX order ${orderNumber} (${cartCount} item(s), ${formatPrice(cartTotal)})`,
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 20,
+                      background: "#25D366",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 999,
+                      padding: "14px 0",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textDecoration: "none",
+                    }}
+                  >
+                    Confirm on WhatsApp
+                  </a>
+                  <button
+                    onClick={() => {
+                      clearCart();
+                      setShowCheckout(false);
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 12,
+                      background: "transparent",
+                      color: "#000",
+                      border: "1px solid #ddd",
+                      borderRadius: 999,
+                      padding: "12px 0",
+                      fontSize: 14,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
